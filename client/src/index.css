@@ -1,0 +1,194 @@
+/* --- ГЛОБАЛЬНІ СТИЛІ --- */
+* {
+  box-sizing: border-box;
+}
+
+body {
+  margin: 0;
+  padding: 0;
+  font-family: 'Inter', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+  background-color: #fdfdfd;
+  color: #333;
+  /* Виправляємо баг Vite, який центрує весь контент */
+  display: block !important; 
+}
+
+#root {
+  width: 100%;
+}
+
+/* --- СЕКЦІЯ РЕКЛАМНОГО БАНЕРА (SLIDER) --- */
+.promo-section {
+  padding: 30px 10%;
+  position: relative;
+}
+
+.promo-viewport {
+  width: 100%;
+  height: 350px; /* Висота банера */
+  border-radius: 25px;
+  overflow: hidden;
+  position: relative;
+  box-shadow: 0 15px 40px rgba(0,0,0,0.2);
+}
+
+/* Окремий слайд */
+.promo-slide {
+  position: absolute;
+  top: 0;
+  left: 0;
+  width: 100%;
+  height: 100%;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  color: white;
+  opacity: 0; /* Прихований за замовчуванням */
+  visibility: hidden;
+  transition: opacity 0.8s ease-in-out, transform 1.2s ease;
+  transform: scale(1.1); /* Легке збільшення фону для ефекту глибини */
+  background-size: cover;
+  background-position: center;
+  text-align: center;
+}
+
+/* Активний слайд */
+.promo-slide.active {
+  opacity: 1;
+  visibility: visible;
+  transform: scale(1); /* Повернення до нормального розміру при появі */
+  z-index: 2;
+}
+
+/* Анімація тексту всередині активного слайда */
+.promo-slide.active h1,
+.promo-slide.active p,
+.promo-slide.active .promo-btn {
+  animation: slideUpFade 0.8s forwards;
+  opacity: 0;
+}
+
+.promo-slide.active h1 { animation-delay: 0.3s; }
+.promo-slide.active p { animation-delay: 0.5s; }
+.promo-slide.active .promo-btn { animation-delay: 0.7s; }
+
+@keyframes slideUpFade {
+  from {
+    transform: translateY(40px);
+    opacity: 0;
+  }
+  to {
+    transform: translateY(0);
+    opacity: 1;
+  }
+}
+
+/* Кнопка на банері */
+.promo-btn {
+  margin-top: 25px;
+  padding: 14px 35px;
+  background-color: #8e24aa;
+  color: white;
+  border: none;
+  border-radius: 30px;
+  font-weight: bold;
+  font-size: 16px;
+  cursor: pointer;
+  transition: 0.3s ease;
+  box-shadow: 0 5px 15px rgba(142, 36, 170, 0.4);
+}
+
+.promo-btn:hover {
+  background-color: #ab47bc;
+  transform: translateY(-3px);
+  box-shadow: 0 8px 20px rgba(142, 36, 170, 0.6);
+}
+
+/* Крапочки (індикатори) */
+.promo-dots {
+  position: absolute;
+  bottom: 25px;
+  left: 50%;
+  transform: translateX(-50%);
+  display: flex;
+  gap: 12px;
+  z-index: 10;
+}
+
+.dot {
+  width: 12px;
+  height: 12px;
+  border-radius: 50%;
+  background: rgba(255, 255, 255, 0.3);
+  cursor: pointer;
+  transition: 0.4s;
+}
+
+.dot.active {
+  background: #fff;
+  width: 35px;
+  border-radius: 10px;
+}
+
+/* --- СЕКЦІЯ ФІЛЬМІВ (СЛАЙДЕР) --- */
+.movie-container {
+  position: relative;
+  width: 100%;
+}
+
+.movie-slider {
+  display: flex !important;
+  flex-direction: row !important;
+  flex-wrap: nowrap !important;
+  gap: 25px;
+  overflow-x: auto !important;
+  scroll-behavior: smooth;
+  scroll-snap-type: x mandatory;
+  padding: 10px 0 40px 0;
+  width: 100%;
+  scrollbar-width: none; /* Приховуємо скрол для Firefox */
+  -ms-overflow-style: none; /* Приховуємо скрол для IE */
+}
+
+.movie-slider::-webkit-scrollbar {
+  display: none; /* Приховуємо скрол для Chrome/Safari */
+}
+
+.movie-card {
+  flex: 0 0 300px !important; /* Фіксована ширина, щоб з'явився скрол */
+  scroll-snap-align: start;
+  transition: transform 0.4s cubic-bezier(0.175, 0.885, 0.32, 1.275);
+}
+
+.movie-card:hover {
+  transform: translateY(-12px);
+}
+
+/* Кнопки прокрутки для фільмів */
+.nav-btn {
+  position: absolute;
+  top: 40%;
+  transform: translateY(-50%);
+  background: white;
+  border: 1px solid #eee;
+  width: 50px;
+  height: 50px;
+  border-radius: 50%;
+  cursor: pointer;
+  z-index: 5;
+  box-shadow: 0 4px 15px rgba(0,0,0,0.1);
+  font-size: 20px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  transition: 0.3s;
+}
+
+.nav-btn:hover {
+  background: #f8f8f8;
+  box-shadow: 0 6px 20px rgba(0,0,0,0.15);
+}
+
+.prev-btn { left: -25px; }
+.next-btn { right: -25px; }
