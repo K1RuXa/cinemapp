@@ -7,9 +7,9 @@ const ProfilePage = () => {
   const [tickets, setTickets] = useState([]);
   const [allMovies, setAllMovies] = useState([]);
   const [loading, setLoading] = useState(true);
-  const [activeTab, setActiveTab] = useState('tickets'); // 'tickets' | 'recommendations'
+  const [activeTab, setActiveTab] = useState('tickets');
+  const [hoveredItemId, setHoveredItemId] = useState(null);
 
-  // Безпечно дістаємо дані користувача з контексту
   const currentUserData = user?.user || user;
   const userId = currentUserData?.id;
   const username = currentUserData?.username || currentUserData?.name || 'Користувач';
@@ -19,7 +19,6 @@ const ProfilePage = () => {
     const fetchProfileData = async () => {
       if (!userId) return;
       try {
-        // Одночасно завантажуємо квитки юзера та всі фільми для системи рекомендацій
         const [ticketsRes, moviesRes] = await Promise.all([
           axios.get(`http://localhost:5000/api/user/tickets/${userId}`),
           axios.get(`http://localhost:5000/api/movies`)
@@ -37,19 +36,14 @@ const ProfilePage = () => {
     fetchProfileData();
   }, [userId]);
 
-  // --- 🧠 РОЗУМНА СИСТЕМА РЕКОМЕНДАЦІЙ за твоїм запитом ---
   const getRecommendations = () => {
     if (tickets.length === 0) {
-      // Якщо квитків ще немає, рекомендуємо фільми з найвищим рейтингом
       return [...allMovies]
         .sort((a, b) => parseFloat(b.rating || 0) - parseFloat(a.rating || 0))
         .slice(0, 4);
     }
 
-    // Збираємо всі жанри з куплених квитків користувача
     const userGenres = tickets.map(t => t.genre?.toLowerCase().trim()).filter(Boolean);
-
-    // Фільтруємо фільми з бази, які мають такий самий жанр, але які користувач ще не купив
     const boughtMovieTitles = tickets.map(t => t.title.toLowerCase());
     
     const recommended = allMovies.filter(movie => {
@@ -58,7 +52,6 @@ const ProfilePage = () => {
       return !isAlreadyBought && hasMatchingGenre;
     });
 
-    // Якщо нічого не знайшли за збігом, просто повертаємо свіжі фільми, крім уже куплених
     return recommended.length > 0 
       ? recommended.slice(0, 4) 
       : allMovies.filter(m => !boughtMovieTitles.includes(m.title.toLowerCase())).slice(0, 4);
@@ -68,30 +61,44 @@ const ProfilePage = () => {
 
   if (!user) {
     return (
-      <div style={{ textAlign: 'center', padding: '80px 20px', color: '#333' }}>
-        <h2>Будь ласка, увійдіть до системи, щоб переглянути особистий кабінет!</h2>
+      <div style={{ textAlign: 'center', padding: '100px 20px', color: '#fff', backgroundColor: '#0d0d15', minHeight: '100vh' }}>
+        <h2 style={{ fontSize: '22px', fontWeight: '800' }}>Будь ласка, увійдіть до системи, щоб переглянути особистий кабінет!</h2>
       </div>
     );
   }
 
   if (loading) {
-    return <div style={{ textAlign: 'center', padding: '100px', fontSize: '18px', color: '#8e24aa' }}>Завантаження профілю...</div>;
+    return <div style={{ textAlign: 'center', padding: '100px', fontSize: '18px', color: '#a259ff', backgroundColor: '#0d0d15', minHeight: '100vh' }}>Завантаження профілю...</div>;
   }
 
   return (
     <div style={containerStyle}>
-      {/* 👤 КАРТКА ПРОФІЛЮ КОРИСТУВАЧА */}
       <div style={profileCardStyle}>
-        <div style={avatarStyle}>
-          {username[0].toUpperCase()}
+        <div style={cardBgPatternStyle}></div>
+        
+        <div style={cardHeaderStyle}>
+          <div style={avatarStyle}>
+            {username[0].toUpperCase()}
+          </div>
+          <div style={profileInfoStyle}>
+            <div style={badgeStyle}>CINEMA FUTURE PASS</div>
+            <h2 style={usernameStyle}>{username}</h2>
+            <p style={emailStyle}>📧 {email || 'Email не вказано'}</p>
+          </div>
         </div>
-        <div style={profileInfoStyle}>
-          <h2 style={usernameStyle}>{username}</h2>
-          <p style={emailStyle}>📧 {email || 'Email не вказано'}</p>
+
+        <div style={cardMetaStyle}>
+          <div style={metaItemStyle}>
+            <span style={metaLabelStyle}>СТАТУС АКАУНТА</span>
+            <span style={metaValueStyle}>Premium VIP 🔥</span>
+          </div>
+          <div style={metaItemStyle}>
+            <span style={metaLabelStyle}>КЛУБНА КАРТКА</span>
+            <span style={metaValueStyle}>#CF-{String(userId).padStart(4, '0')}</span>
+          </div>
         </div>
       </div>
 
-      {/* 🎛 ПЕРЕМИКАЧ ВКЛАДОК (TABS) */}
       <div style={tabsContainerStyle}>
         <button 
           style={{ ...tabButtonStyle, ...(activeTab === 'tickets' ? activeTabStyle : {}) }}
@@ -107,55 +114,83 @@ const ProfilePage = () => {
         </button>
       </div>
 
-      {/* 🎟 СЕКЦІЯ 1: СПИСОК КВИТКІВ */}
       {activeTab === 'tickets' && (
         <div style={ticketsContainerStyle}>
           {tickets.length > 0 ? (
-            tickets.map(ticket => (
-              <div key={ticket.ticket_id} style={ticketCardStyle}>
-                <img src={ticket.image} alt={ticket.title} style={ticketImageStyle} />
-                <div style={ticketMetaStyle}>
-                  <h3 style={ticketTitleStyle}>{ticket.title}</h3>
-                  <p style={ticketTextStyle}>🍿 Жанр: {ticket.genre}</p>
-                  <p style={ticketTextStyle}>📅 Дата: {new Date(ticket.show_time).toLocaleDateString('uk-UA')}</p>
-                  <p style={ticketTextStyle}>⏱ Час: {new Date(ticket.show_time).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })}</p>
-                  <div style={seatBadgeStyle}>
-                    📍 {ticket.seat_details || 'Місця уточнюються'}
+            tickets.map(ticket => {
+              const isHovered = hoveredItemId === ticket.ticket_id;
+              return (
+                <div 
+                  key={ticket.ticket_id} 
+                  style={{
+                    ...ticketCardStyle,
+                    borderColor: isHovered ? 'rgba(162, 89, 255, 0.25)' : 'rgba(255, 255, 255, 0.04)',
+                    boxShadow: isHovered ? '0 10px 30px rgba(142, 36, 170, 0.12)' : 'none',
+                    transform: isHovered ? 'translateY(-4px)' : 'none'
+                  }}
+                  onMouseEnter={() => setHoveredItemId(ticket.ticket_id)}
+                  onMouseLeave={() => setHoveredItemId(null)}
+                >
+                  <img src={ticket.image} alt={ticket.title} style={ticketImageStyle} />
+                  
+                  <div style={ticketMetaStyle}>
+                    <h3 style={ticketTitleStyle}>{ticket.title}</h3>
+                    <p style={ticketTextStyle}>🍿 Жанр: {ticket.genre}</p>
+                    <p style={ticketTextStyle}>📅 Дата: {new Date(ticket.show_time).toLocaleDateString('uk-UA')}</p>
+                    <p style={ticketTextStyle}>⏱ Час: {new Date(ticket.show_time).toLocaleTimeString('uk-UA', { hour: '2-digit', minute: '2-digit', timeZone: 'UTC' })}</p>
+                    
+                    <div style={seatBadgeStyle}>
+                      📍 {ticket.seat_details || 'Місця уточнюються'}
+                    </div>
+                  </div>
+
+                  <div style={qrSectionStyle}>
+                    <div style={qrCodePlaceholderStyle}>QR</div>
+                    <span style={ticketIdStyle}>#T-{ticket.ticket_id}</span>
                   </div>
                 </div>
-                {/* Правий блок квитка з кодом */}
-                <div style={qrSectionStyle}>
-                  <div style={qrCodePlaceholderStyle}>QR</div>
-                  <span style={ticketIdStyle}>#T-{ticket.ticket_id}</span>
-                </div>
-              </div>
-            ))
+              );
+            })
           ) : (
             <div style={emptyStateStyle}>
-              🎬 Тут будуть відображатися ваші куплені квитки. Час сходити в кіно!
+              <span style={{ fontSize: '40px', marginBottom: '10px', display: 'block' }}>🎬</span>
+              <h3 style={{ margin: '0 0 6px 0', color: '#fff', fontSize: '18px' }}>У вас ще немає квитків</h3>
+              <p style={{ margin: 0, color: '#6c6c80', fontSize: '14px' }}>Куплені квитки миттєво з'являться тут.</p>
             </div>
           )}
         </div>
       )}
 
-      {/* 🧠 СЕКЦІЯ 2: СИСТЕМА РЕКОМЕНДАЦІЙ */}
       {activeTab === 'recommendations' && (
         <div>
           <h3 style={recSectionTitleStyle}>
             {tickets.length > 0 
-              ? `На основі ваших уподобань рекомендуємо фільми у жанрі схожому на ваші квитки:` 
+              ? `На основі ваших уподобань рекомендуємо фільми схожих жанрів:` 
               : `Популярно серед глядачів Cinema Future:`}
           </h3>
           <div style={gridStyle}>
-            {recommendedMovies.map(movie => (
-              <div key={movie.id} style={movieCardStyle}>
-                <img src={movie.image} alt={movie.title} style={movieImageStyle} />
-                <div style={movieMetaStyle}>
-                  <h4 style={movieTitleStyle}>{movie.title}</h4>
-                  <p style={movieGenreStyle}>{movie.genre} • <span style={{color: '#8e24aa', fontWeight: 'bold'}}>{movie.rating || '16+'}</span></p>
+            {recommendedMovies.map(movie => {
+              const isHovered = hoveredItemId === movie.id;
+              return (
+                <div 
+                  key={movie.id} 
+                  style={{
+                    ...movieCardStyle,
+                    borderColor: isHovered ? 'rgba(162, 89, 255, 0.25)' : 'rgba(255, 255, 255, 0.04)',
+                    boxShadow: isHovered ? '0 10px 30px rgba(142, 36, 170, 0.12)' : 'none',
+                    transform: isHovered ? 'translateY(-6px)' : 'none'
+                  }}
+                  onMouseEnter={() => setHoveredItemId(movie.id)}
+                  onMouseLeave={() => setHoveredItemId(null)}
+                >
+                  <img src={movie.image} alt={movie.title} style={movieImageStyle} />
+                  <div style={movieMetaStyle}>
+                    <h4 style={movieTitleStyle}>{movie.title}</h4>
+                    <p style={movieGenreStyle}>{movie.genre} • <span style={{color: '#a259ff', fontWeight: 'bold'}}>{movie.rating || '16+'}</span></p>
+                  </div>
                 </div>
-              </div>
-            ))}
+              );
+            })}
           </div>
         </div>
       )}
@@ -163,60 +198,149 @@ const ProfilePage = () => {
   );
 };
 
-// --- СТИЛІЗАЦІЯ В ОРИГІНАЛЬНІЙ СВІТЛІЙ ПАЛІТРІ ---
-const containerStyle = { padding: '0 10% 60px 10%', backgroundColor: '#fff', minHeight: '100vh' };
+const containerStyle = { padding: '0 8% 60px 8%', backgroundColor: '#0d0d15', minHeight: '100vh', color: '#fff' };
 
 const profileCardStyle = {
-  display: 'flex', alignItems: 'center', gap: '25px', 
-  background: 'linear-gradient(135deg, #2b3abf 0%, #a259ff 100%)',
-  borderRadius: '24px', padding: '35px 40px', color: '#fff', marginTop: '30px', marginBottom: '40px',
-  boxShadow: '0 10px 25px rgba(43, 58, 191, 0.15)'
+  position: 'relative',
+  overflow: 'hidden',
+  background: 'linear-gradient(135deg, #1e1e2f 0%, #4a148c 50%, #8e24aa 100%)',
+  borderRadius: '28px',
+  padding: '40px',
+  color: '#fff',
+  marginTop: '30px',
+  marginBottom: '40px',
+  boxShadow: '0 15px 35px rgba(142, 36, 170, 0.25)',
+  display: 'flex',
+  flexDirection: 'row',
+  justifyContent: 'space-between',
+  alignItems: 'center',
+  flexWrap: 'wrap',
+  gap: '30px'
 };
+
+const cardBgPatternStyle = {
+  position: 'absolute',
+  top: '-50px',
+  right: '-50px',
+  width: '250px',
+  height: '250px',
+  borderRadius: '50%',
+  background: 'rgba(255, 255, 255, 0.03)',
+  pointerEvents: 'none'
+};
+
+const cardHeaderStyle = { display: 'flex', alignItems: 'center', gap: '25px', zIndex: 2 };
 
 const avatarStyle = {
-  width: '70px', height: '70px', borderRadius: '50%', backgroundColor: '#fff',
-  color: '#4a148c', display: 'flex', justifyContent: 'center', alignItems: 'center',
-  fontSize: '28px', fontWeight: '800', boxShadow: '0 4px 12px rgba(0,0,0,0.1)'
+  width: '85px',
+  height: '85px',
+  borderRadius: '50%',
+  backgroundColor: 'rgba(255, 255, 255, 0.15)',
+  backdropFilter: 'blur(10px)',
+  color: '#fff',
+  display: 'flex',
+  justifyContent: 'center',
+  alignItems: 'center',
+  fontSize: '36px',
+  fontWeight: '800',
+  border: '2px solid rgba(255, 255, 255, 0.25)',
+  boxShadow: '0 8px 20px rgba(0,0,0,0.2)'
 };
 
-const profileInfoStyle = { display: 'flex', flexDirection: 'column', gap: '4px' };
-const usernameStyle = { fontSize: '26px', fontWeight: '800', margin: 0 };
-const emailStyle = { fontSize: '15px', margin: 0, opacity: 0.9 };
+const badgeStyle = {
+  alignSelf: 'flex-start',
+  backgroundColor: 'rgba(255, 255, 255, 0.1)',
+  border: '1px solid rgba(255, 255, 255, 0.2)',
+  padding: '4px 12px',
+  borderRadius: '50px',
+  fontSize: '11px',
+  fontWeight: '700',
+  letterSpacing: '1.5px',
+  color: '#e1bee7',
+  marginBottom: '6px',
+  display: 'inline-block'
+};
 
-// СТИЛІ ДЛЯ МЕНЮ (ТАБИ)
-const tabsContainerStyle = { display: 'flex', gap: '20px', marginBottom: '30px', borderBottom: '2px solid #f3e5f5' };
+const profileInfoStyle = { display: 'flex', flexDirection: 'column' };
+const usernameStyle = { fontSize: '28px', fontWeight: '800', margin: '0 0 4px 0', letterSpacing: '-0.5px' };
+const emailStyle = { fontSize: '14px', margin: 0, opacity: 0.7, fontWeight: '500' };
+
+const cardMetaStyle = {
+  display: 'flex',
+  gap: '40px',
+  backgroundColor: 'rgba(0, 0, 0, 0.15)',
+  padding: '20px 30px',
+  borderRadius: '20px',
+  backdropFilter: 'blur(5px)',
+  border: '1px solid rgba(255, 255, 255, 0.05)',
+  zIndex: 2
+};
+
+const metaItemStyle = { display: 'flex', flexDirection: 'column', gap: '4px' };
+const metaLabelStyle = { fontSize: '10px', fontWeight: '700', color: '#b39ddb', letterSpacing: '1px' };
+const metaValueStyle = { fontSize: '15px', fontWeight: '700', color: '#fff' };
+
+const tabsContainerStyle = { display: 'flex', gap: '20px', marginBottom: '35px', borderBottom: '2px solid rgba(255, 255, 255, 0.04)' };
+
 const tabButtonStyle = {
-  padding: '12px 20px', fontSize: '16px', fontWeight: '700', color: '#666',
-  backgroundColor: 'transparent', border: 'none', cursor: 'pointer', transition: 'all 0.2s ease',
-  borderBottom: '3px solid transparent', paddingBottom: '12px'
+  padding: '12px 24px', fontSize: '15px', fontWeight: '700', color: '#6c6c80',
+  backgroundColor: 'transparent', border: 'none', cursor: 'pointer', transition: 'all 0.3s ease',
+  borderBottom: '3px solid transparent', paddingBottom: '14px'
 };
-const activeTabStyle = { color: '#8e24aa', borderBottom: '3px solid #8e24aa' };
 
-// КАРТКИ КВИТКІВ
-const ticketsContainerStyle = { display: 'flex', flexDirection: 'column', gap: '20px' };
+const activeTabStyle = { color: '#a259ff', borderBottom: '3px solid #a259ff' };
+
+const ticketsContainerStyle = { display: 'flex', flexDirection: 'column', gap: '24px' };
+
 const ticketCardStyle = {
-  display: 'flex', backgroundColor: '#fff', borderRadius: '20px', overflow: 'hidden',
-  border: '1px solid #eee', boxShadow: '0 6px 18px rgba(0,0,0,0.03)'
+  display: 'flex', backgroundColor: '#14141f', borderRadius: '24px', overflow: 'hidden',
+  border: '1px solid rgba(255, 255, 255, 0.04)', transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)',
+  flexWrap: 'wrap'
 };
-const ticketImageStyle = { width: '120px', height: '170px', objectFit: 'cover' };
-const ticketMetaStyle = { padding: '20px', flex: 1, display: 'flex', flexDirection: 'column', gap: '5px', justifyContent: 'center' };
-const ticketTitleStyle = { fontSize: '18px', fontWeight: '700', color: '#333', margin: '0 0 5px 0' };
-const ticketTextStyle = { fontSize: '14px', color: '#666', margin: 0 };
-const seatBadgeStyle = { alignSelf: 'flex-start', marginTop: '6px', padding: '4px 10px', backgroundColor: '#f3e5f5', color: '#4a148c', borderRadius: '6px', fontSize: '12px', fontWeight: '700' };
 
-const qrSectionStyle = { display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', padding: '0 30px', borderLeft: '1px dashed #e0e0e0', backgroundColor: '#fafafa' };
-const qrCodePlaceholderStyle = { width: '55px', height: '55px', backgroundColor: '#333', color: '#fff', borderRadius: '6px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '11px', fontWeight: '700', letterSpacing: '1px' };
-const ticketIdStyle = { fontSize: '11px', color: '#999', marginTop: '8px', fontWeight: '600' };
+const ticketImageStyle = { width: '110px', height: '160px', objectFit: 'cover' };
 
-// СТИЛІ РЕКОМЕНДАЦІЙ
-const recSectionTitleStyle = { fontSize: '18px', fontWeight: '700', color: '#444', marginBottom: '20px' };
+const ticketMetaStyle = { padding: '20px 25px', flex: 1, display: 'flex', flexDirection: 'column', gap: '6px', justifyContent: 'center' };
+const ticketTitleStyle = { fontSize: '20px', fontWeight: '800', color: '#fff', margin: '0 0 2px 0', letterSpacing: '-0.5px' };
+const ticketTextStyle = { fontSize: '14px', color: '#6c6c80', margin: 0, fontWeight: '500' };
+
+const seatBadgeStyle = { 
+  alignSelf: 'flex-start', marginTop: '8px', padding: '6px 14px', 
+  backgroundColor: 'rgba(162, 89, 255, 0.12)', color: '#a259ff', 
+  borderRadius: '10px', fontSize: '13px', fontWeight: '700',
+  border: '1px solid rgba(162, 89, 255, 0.2)' 
+};
+
+const qrSectionStyle = { 
+  display: 'flex', flexDirection: 'column', alignItems: 'center', justifyContent: 'center', 
+  padding: '0 40px', borderLeft: '1px dashed rgba(255, 255, 255, 0.08)', backgroundColor: 'rgba(255, 255, 255, 0.01)' 
+};
+
+const qrCodePlaceholderStyle = { 
+  width: '60px', height: '60px', backgroundColor: '#fff', color: '#14141f', 
+  borderRadius: '12px', display: 'flex', justifyContent: 'center', alignItems: 'center', 
+  fontSize: '13px', fontWeight: '900', letterSpacing: '1px', boxShadow: '0 0 20px rgba(255,255,255,0.1)' 
+};
+
+const ticketIdStyle = { fontSize: '12px', color: '#525266', marginTop: '10px', fontWeight: '700' };
+
+const recSectionTitleStyle = { fontSize: '18px', fontWeight: '700', color: '#fff', marginBottom: '25px' };
 const gridStyle = { display: 'grid', gridTemplateColumns: 'repeat(auto-fill, minmax(230px, 1fr))', gap: '30px' };
-const movieCardStyle = { display: 'flex', flexDirection: 'column', gap: '12px' };
-const movieImageStyle = { width: '100%', height: '340px', objectFit: 'cover', borderRadius: '20px', boxShadow: '0 6px 15px rgba(0,0,0,0.05)' };
-const movieMetaStyle = { display: 'flex', flexDirection: 'column', gap: '2px' };
-const movieTitleStyle = { fontSize: '16px', fontWeight: '700', color: '#333', margin: 0 };
-const movieGenreStyle = { fontSize: '13px', color: '#777', margin: 0 };
 
-const emptyStateStyle = { textAlign: 'center', padding: '50px 20px', color: '#999', fontSize: '15px', fontStyle: 'italic', border: '1px dashed #ddd', borderRadius: '16px' };
+const movieCardStyle = { 
+  display: 'flex', flexDirection: 'column', gap: '14px', backgroundColor: '#14141f', 
+  padding: '16px', borderRadius: '24px', border: '1px solid rgba(255, 255, 255, 0.04)',
+  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)' 
+};
+
+const movieImageStyle = { width: '100%', height: '320px', objectFit: 'cover', borderRadius: '18px' };
+const movieMetaStyle = { display: 'flex', flexDirection: 'column', gap: '4px' };
+const movieTitleStyle = { fontSize: '17px', fontWeight: '800', color: '#fff', margin: 0, letterSpacing: '-0.3px' };
+const movieGenreStyle = { fontSize: '13px', color: '#6c6c80', margin: 0, fontWeight: '500' };
+
+const emptyStateStyle = { 
+  textAlign: 'center', padding: '60px 40px', backgroundColor: '#14141f', 
+  borderRadius: '24px', border: '1px dashed rgba(255, 255, 255, 0.06)', maxWidth: '500px', margin: '20px auto 0 auto' 
+};
 
 export default ProfilePage;

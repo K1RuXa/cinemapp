@@ -2,23 +2,18 @@ const express = require("express");
 const cors = require("cors");
 const bcrypt = require("bcrypt");
 const jwt = require("jsonwebtoken");
-const { QueryTypes } = require("sequelize"); // Додано для чистого зчитування масивів із бази
-const sequelize = require("./config/db"); // Твій конфіг Sequelize
+const { QueryTypes } = require("sequelize"); 
+const sequelize = require("./config/db"); 
 const movieRoutes = require("./routes/movies");
 
 const app = express();
-const JWT_SECRET = 'super_secret_key_cinema_123'; // Секретне слово для токенів сесії
+const JWT_SECRET = 'super_secret_key_cinema_123'; 
 
-// Middlewares
 app.use(cors()); 
 app.use(express.json()); 
 
-// Маршрути для фільмів
 app.use("/api/movies", movieRoutes);
 
-// ==========================================
-// МАРШРУТ ДЛЯ СЕАНСІВ
-// ==========================================
 app.get('/api/sessions', async (req, res) => {
   try {
     const data = await sequelize.query("SELECT * FROM sessions", {
@@ -31,14 +26,10 @@ app.get('/api/sessions', async (req, res) => {
   }
 });
 
-// ==========================================
-// НОВИЙ МАРШРУТ: ОТРИМАННЯ КВИТКІВ КОРИСТУВАЧА
-// ==========================================
 app.get('/api/user/tickets/:userId', async (req, res) => {
   const { userId } = req.params;
 
   try {
-    // Зв'язуємо таблиці, щоб отримати повну інформацію про квиток та фільм
     const tickets = await sequelize.query(`
       SELECT 
         t.id AS ticket_id,
@@ -46,11 +37,14 @@ app.get('/api/user/tickets/:userId', async (req, res) => {
         s.show_time,
         m.title,
         m.image,
-        m.genre
+        m.genre,
+        u.username,
+        u.email
       FROM tickets t
       JOIN sessions s ON t.session_id = s.id
       JOIN movies m ON s.movie_id = m.id
       JOIN orders o ON t.order_id = o.id
+      JOIN users u ON o.user_id = u.id
       WHERE o.user_id = ?
       ORDER BY s.show_time DESC
     `, {
@@ -65,11 +59,62 @@ app.get('/api/user/tickets/:userId', async (req, res) => {
   }
 });
 
-// ==========================================
-// МАРШРУТИ ДЛЯ АВТОРИЗАЦІЇ
-// ==========================================
+app.get('/api/sessions/:sessionId/taken-seats', async (req, res) => {
+  const { sessionId } = req.params;
 
-// 1. РЕЄСТРАЦІЯ
+  try {
+    const takenSeats = await sequelize.query(`
+      SELECT seat_details 
+      FROM tickets 
+      WHERE session_id = ?
+    `, {
+      replacements: [sessionId],
+      type: QueryTypes.SELECT
+    });
+
+    return res.json(takenSeats);
+  } catch (err) {
+    console.error("Помилка при отриманні зайнятих місць для сеансу:", err);
+    return res.status(500).json({ error: "Помилка сервера при отриманні місць залу" });
+  }
+});
+
+app.post('/api/booking/book', async (req, res) => {
+  const { userId, sessionId, seats, totalAmount } = req.body;
+
+  if (!userId || !sessionId || !seats || seats.length === 0) {
+    return res.status(400).json({ error: "Неповні дані для бронювання" });
+  }
+
+  try {
+    await sequelize.query(`
+      INSERT INTO orders (user_id, total_amount, order_date) 
+      VALUES (?, ?, NOW())
+    `, {
+      replacements: [userId, totalAmount]
+    });
+
+    const rows = await sequelize.query(`SELECT LAST_INSERT_ID() AS id`, {
+      type: QueryTypes.SELECT
+    });
+    const orderId = rows[0].id;
+
+    for (let seat of seats) {
+      await sequelize.query(`
+        INSERT INTO tickets (order_id, session_id, seat_details) 
+        VALUES (?, ?, ?)
+      `, {
+        replacements: [orderId, sessionId, seat]
+      });
+    }
+
+    return res.status(201).json({ message: "Квитки успішно придбано!" });
+  } catch (err) {
+    console.error("Помилка при бронюванні:", err);
+    return res.status(500).json({ error: "Помилка сервера при оформленні квитків" });
+  }
+});
+
 app.post('/api/auth/register', async (req, res) => {
   const { username, email, password } = req.body;
 
@@ -118,7 +163,6 @@ app.post('/api/auth/register', async (req, res) => {
   }
 });
 
-// 2. ВХІД (АВТОРИЗАЦІЯ)
 app.post('/api/auth/login', async (req, res) => {
   const { email, password } = req.body;
 
@@ -165,9 +209,6 @@ app.post('/api/auth/login', async (req, res) => {
   }
 });
 
-// ==========================================
-// СИНХРОНІЗАЦІЯ ТА ЗАПУСК СЕРВЕРА
-// ==========================================
 sequelize.sync({ alter: true })
   .then(() => {
     console.log("✅ База даних підключена та синхронізована!");

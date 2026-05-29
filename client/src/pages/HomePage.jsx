@@ -1,4 +1,5 @@
 import { useState, useEffect, useRef } from 'react';
+import { useNavigate } from 'react-router-dom';
 import axios from 'axios';
 
 const HomePage = () => {
@@ -6,18 +7,18 @@ const HomePage = () => {
   const [sessions, setSessions] = useState([]);
   const [loading, setLoading] = useState(true);
   const [currentSlide, setCurrentSlide] = useState(0);
+  const [hoveredMovieId, setHoveredMovieId] = useState(null);
   const scrollContainerRef = useRef(null);
+  const navigate = useNavigate();
 
-  // Отримуємо сьогоднішню дату в локальному форматі YYYY-MM-DD
   const today = new Date();
   const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
 
-  // Слайди для твого красивого банера
   const bannerSlides = [
     { 
       title: "День Попкорну", 
       subtitle: "Купуй великий попкорн — отримуй напій у подарунок!",
-      bg: "linear-gradient(rgba(0,0,0,0.4), rgba(0,0,0,0.4)), url('https://images.unsplash.com/photo-1578496479531-32e296d5c6e1?w=1200')" 
+      bg: "linear-gradient(to top, rgba(13, 13, 21, 1), rgba(13, 13, 21, 0.4)), url('https://images.unsplash.com/photo-1578496479531-32e296d5c6e1?w=1200')" 
     },
     { 
       title: "Cinema Future", 
@@ -43,18 +44,16 @@ const HomePage = () => {
     fetchData();
   }, []);
 
-  // Перемикання банерів
   useEffect(() => {
     const timer = setInterval(() => {
       setCurrentSlide((prev) => (prev + 1) % bannerSlides.length);
-    }, 5000);
+    }, 6000);
     return () => clearInterval(timer);
   }, [bannerSlides.length]);
 
-  // Функція для плавного скролу стрічки вліво/вправо
   const handleScroll = (direction) => {
     if (scrollContainerRef.current) {
-      const scrollAmount = 310; // Ширина картки + відступ
+      const scrollAmount = 310;
       scrollContainerRef.current.scrollBy({
         left: direction === 'left' ? -scrollAmount : scrollAmount,
         behavior: 'smooth'
@@ -62,7 +61,6 @@ const HomePage = () => {
     }
   };
 
-  // Парсинг дати з UTC/Рядка до YYYY-MM-DD
   const getSessionDateStr = (showTime) => {
     if (!showTime) return '';
     if (typeof showTime === 'string' && showTime.includes('T')) return showTime.split('T')[0];
@@ -70,13 +68,11 @@ const HomePage = () => {
     return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
   };
 
-  // Перетворення часу в формат HH:MM (з урахуванням можливого зсуву зон)
   const formatSessionTime = (showTime) => {
     if (!showTime) return '--:--';
     const d = new Date(showTime);
     if (isNaN(d.getTime())) return '--:--';
     
-    // Перевіряємо, чи є в рядку суфікс 'Z' (UTC з бази)
     const hasZ = typeof showTime === 'string' && (showTime.endsWith('Z') || showTime.includes('+'));
     return d.toLocaleTimeString('uk-UA', {
       hour: '2-digit',
@@ -86,17 +82,17 @@ const HomePage = () => {
   };
 
   if (loading) {
-    return <div style={{ textAlign: 'center', padding: '50px', fontSize: '18px', color: '#8e24aa' }}>Завантаження афіші...</div>;
+    return <div style={{ textAlign: 'center', padding: '100px', fontSize: '18px', color: '#a259ff', backgroundColor: '#0d0d15', minHeight: '100vh' }}>Завантаження афіші...</div>;
   }
 
   return (
     <div style={containerStyle}>
-      
-      {/* 🍿 ІНТЕНСИВНИЙ БАНЕР З КНОПКОЮ */}
       <div style={{ ...bannerStyle, backgroundImage: bannerSlides[currentSlide].bg }}>
-        <h1 style={bannerTitleStyle}>{bannerSlides[currentSlide].title}</h1>
-        <p style={bannerSubtitleStyle}>{bannerSlides[currentSlide].subtitle}</p>
-        <button style={bannerButtonStyle}>Дізнатись більше</button>
+        <div style={bannerContentWrapperStyle}>
+          <h1 style={bannerTitleStyle}>{bannerSlides[currentSlide].title}</h1>
+          <p style={bannerSubtitleStyle}>{bannerSlides[currentSlide].subtitle}</p>
+          <button style={bannerButtonStyle}>Дізнатись більше</button>
+        </div>
 
         <div style={dotsContainerStyle}>
           {bannerSlides.map((_, index) => (
@@ -104,75 +100,101 @@ const HomePage = () => {
               key={index} 
               style={{
                 ...dotStyle,
-                backgroundColor: currentSlide === index ? '#fff' : 'rgba(255,255,255,0.4)',
-                width: currentSlide === index ? '24px' : '8px'
+                backgroundColor: currentSlide === index ? '#a259ff' : 'rgba(255,255,255,0.2)',
+                width: currentSlide === index ? '28px' : '8px'
               }}
             />
           ))}
         </div>
       </div>
 
-      <h2 style={sectionTitleStyle}>Зараз у кіно</h2>
+      <div style={sectionHeaderStyle}>
+        <h2 style={sectionTitleStyle}>Зараз у кіно</h2>
+        <div style={lineAccentStyle}></div>
+      </div>
 
-      {/* 🎬 ОБГОРТКА ДЛЯ СКРОЛУ (КНОПКИ ТЕПЕР ПРАВИЛЬНО ПО БОКАХ) */}
       <div style={sliderContainerWrapper}>
-        
-        {/* Ліва стрічка поверх картки */}
         <button 
-          style={{ ...sideScrollButtonStyle, left: '-25px' }} 
+          style={{ ...sideScrollButtonStyle, left: '-20px' }} 
           onClick={() => handleScroll('left')}
-          title="Назад"
+          onMouseOver={(e) => { e.target.style.backgroundColor = '#a259ff'; e.target.style.color = '#fff'; }}
+          onMouseOut={(e) => { e.target.style.backgroundColor = 'rgba(30, 30, 45, 0.8)'; e.target.style.color = '#a259ff'; }}
         >
           ‹
         </button>
         
-        {/* Права стрічка поверх картки */}
         <button 
-          style={{ ...sideScrollButtonStyle, right: '-25px' }} 
+          style={{ ...sideScrollButtonStyle, right: '-20px' }} 
           onClick={() => handleScroll('right')}
-          title="Вперед"
+          onMouseOver={(e) => { e.target.style.backgroundColor = '#a259ff'; e.target.style.color = '#fff'; }}
+          onMouseOut={(e) => { e.target.style.backgroundColor = 'rgba(30, 30, 45, 0.8)'; e.target.style.color = '#a259ff'; }}
         >
           ›
         </button>
 
-        {/* Стрічка з горизонтальною прокруткою */}
         <div ref={scrollContainerRef} style={horizontalScrollStyle}>
           {movies.map(movie => {
-            // Фільтруємо сеанси саме для цього фільму на поточний день
             const todayMovieSessions = sessions.filter(session => {
               return session.movie_id === movie.id && getSessionDateStr(session.show_time) === todayStr;
             });
 
-            // Якщо на сьогодні немає, беремо взагалі будь-які сеанси фільму, щоб показати хоч якийсь розклад
             const backupSessions = sessions.filter(session => session.movie_id === movie.id).slice(0, 3);
+            const isHovered = hoveredMovieId === movie.id;
 
             return (
-              <div key={movie.id} style={movieCardStyle}>
-                {movie.image ? (
-                  <img src={movie.image} alt={movie.title} style={imageStyle} />
-                ) : (
-                  <div style={posterPlaceholderStyle}>🎬</div>
-                )}
+              <div 
+                key={movie.id} 
+                style={{
+                  ...movieCardStyle,
+                  transform: isHovered ? 'translateY(-10px)' : 'none',
+                  borderColor: isHovered ? 'rgba(162, 89, 255, 0.3)' : 'rgba(255, 255, 255, 0.04)',
+                  boxShadow: isHovered ? '0 15px 35px rgba(142, 36, 170, 0.15)' : 'none'
+                }}
+                onMouseEnter={() => setHoveredMovieId(movie.id)}
+                onMouseLeave={() => setHoveredMovieId(null)}
+              >
+                <div style={imageWrapperStyle}>
+                  {movie.image ? (
+                    <img 
+                      src={movie.image} 
+                      alt={movie.title} 
+                      style={{
+                        ...imageStyle,
+                        transform: isHovered ? 'scale(1.06)' : 'scale(1)'
+                      }} 
+                    />
+                  ) : (
+                    <div style={posterPlaceholderStyle}>🎬</div>
+                  )}
+                  <span style={ratingBadgeStyle}>{movie.rating || '16+'}</span>
+                </div>
                 
                 <div style={movieInfoStyle}>
-                  <div style={{ display: 'flex', alignItems: 'center', justifyContent: 'space-between', marginTop: '12px' }}>
-                    <h3 style={movieTitleStyle}>{movie.title}</h3>
-                    <span style={ratingBadgeStyle}>{movie.rating || '16+'}</span>
-                  </div>
+                  <h3 style={movieTitleStyle}>{movie.title}</h3>
                   <p style={movieGenreStyle}>{movie.genre}</p>
                   
-                  {/* РОЗКЛАД СЕАНСІВ (КНОПКИ ЧАСУ) */}
                   <div style={sessionsContainerStyle}>
                     {todayMovieSessions.length > 0 ? (
                       todayMovieSessions.map(session => (
-                        <button key={session.id} style={timeBadgeStyle}>
+                        <button 
+                          key={session.id} 
+                          style={timeBadgeStyle}
+                          onClick={() => navigate(`/session/${session.id}`)}
+                          onMouseOver={(e) => { e.target.style.background = 'linear-gradient(135deg, #2b3abf 0%, #a259ff 100%)'; e.target.style.boxShadow = '0 4px 12px rgba(162, 89, 255, 0.3)'; }}
+                          onMouseOut={(e) => { e.target.style.background = 'rgba(255, 255, 255, 0.06)'; e.target.style.boxShadow = 'none'; }}
+                        >
                           {formatSessionTime(session.show_time)}
                         </button>
                       ))
                     ) : backupSessions.length > 0 ? (
-                      // Якщо сеанси є на інші дні
                       backupSessions.map(session => (
-                        <button key={session.id} style={{ ...timeBadgeStyle, backgroundColor: '#f5f5f5', color: '#666', borderColor: '#ddd' }}>
+                        <button 
+                          key={session.id} 
+                          style={backupTimeBadgeStyle}
+                          onClick={() => navigate(`/session/${session.id}`)}
+                          onMouseOver={(e) => { e.target.style.background = 'linear-gradient(135deg, #2b3abf 0%, #a259ff 100%)'; e.target.style.color = '#fff'; }}
+                          onMouseOut={(e) => { e.target.style.background = 'rgba(255, 255, 255, 0.02)'; e.target.style.color = '#888'; }}
+                        >
                           {formatSessionTime(session.show_time)}
                         </button>
                       ))
@@ -190,87 +212,221 @@ const HomePage = () => {
   );
 };
 
-// --- СТИЛІЗАЦІЯ (ПОВНА ВИПРАВКА СКРОЛУ ТА ПОЗИЦІОНУВАННЯ) ---
-const containerStyle = { padding: '0 8% 40px 8%', backgroundColor: '#fff', minHeight: '100vh' };
-
-const bannerStyle = {
-  backgroundSize: 'cover', backgroundPosition: 'center', borderRadius: '24px', padding: '50px 40px',
-  color: '#fff', marginBottom: '40px', boxShadow: '0 12px 30px rgba(0,0,0,0.08)', position: 'relative',
-  minHeight: '220px', display: 'flex', flexDirection: 'column', justifyContent: 'center', alignItems: 'center',
-  textAlign: 'center', transition: 'background-image 0.8s ease'
+const containerStyle = { 
+  padding: '0 8% 60px 8%', 
+  backgroundColor: '#0d0d15', 
+  minHeight: '100vh',
+  transition: 'all 0.3s ease'
 };
 
-const bannerTitleStyle = { fontSize: '38px', fontWeight: '800', margin: '0 0 10px 0', textShadow: '0 2px 4px rgba(0,0,0,0.4)' };
-const bannerSubtitleStyle = { fontSize: '16px', margin: '0 0 20px 0', opacity: 0.9, textShadow: '0 1px 2px rgba(0,0,0,0.4)' };
-const bannerButtonStyle = { padding: '12px 32px', backgroundColor: '#8e24aa', color: '#fff', border: 'none', borderRadius: '50px', fontSize: '14px', fontWeight: '600', cursor: 'pointer', boxShadow: '0 4px 15px rgba(142,36,170,0.4)' };
-const dotsContainerStyle = { position: 'absolute', bottom: '20px', display: 'flex', gap: '8px' };
-const dotStyle = { height: '8px', borderRadius: '4px', transition: 'all 0.3s ease' };
+const bannerStyle = {
+  backgroundSize: 'cover', 
+  backgroundPosition: 'center', 
+  borderRadius: '32px', 
+  padding: '60px 50px',
+  color: '#fff', 
+  marginBottom: '50px', 
+  position: 'relative',
+  minHeight: '320px', 
+  display: 'flex', 
+  flexDirection: 'column', 
+  justifyContent: 'center', 
+  alignItems: 'flex-start',
+  boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+  transition: 'background-image 0.8s cubic-bezier(0.4, 0, 0.2, 1)'
+};
 
-const sectionTitleStyle = { fontSize: '26px', fontWeight: '700', color: '#333', marginBottom: '20px' };
+const bannerContentWrapperStyle = {
+  maxWidth: '550px',
+  textAlign: 'left',
+  zIndex: 2
+};
 
-// ГОЛОВНЕ ВИПРАВЛЕННЯ: Контейнер-обгортка з відносним позиціонуванням
+const bannerTitleStyle = { 
+  fontSize: '46px', 
+  fontWeight: '900', 
+  margin: '0 0 12px 0', 
+  letterSpacing: '-1px',
+  lineHeight: '1.1'
+};
+
+const bannerSubtitleStyle = { 
+  fontSize: '16px', 
+  margin: '0 0 28px 0', 
+  opacity: 0.85, 
+  lineHeight: '1.5' 
+};
+
+const bannerButtonStyle = { 
+  padding: '14px 36px', 
+  background: 'linear-gradient(135deg, #2b3abf 0%, #a259ff 100%)', 
+  color: '#fff', 
+  border: 'none', 
+  borderRadius: '14px', 
+  fontSize: '14px', 
+  fontWeight: '700', 
+  cursor: 'pointer', 
+  boxShadow: '0 6px 20px rgba(162, 89, 255, 0.4)'
+};
+
+const dotsContainerStyle = { position: 'absolute', bottom: '25px', right: '50px', display: 'flex', gap: '8px' };
+const dotStyle = { height: '8px', borderRadius: '4px', transition: 'all 0.4s ease' };
+
+const sectionHeaderStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '6px',
+  marginBottom: '30px'
+};
+
+const sectionTitleStyle = { 
+  fontSize: '28px', 
+  fontWeight: '800', 
+  color: '#fff', 
+  margin: 0,
+  letterSpacing: '-0.5px'
+};
+
+const lineAccentStyle = {
+  width: '60px',
+  height: '4px',
+  background: 'linear-gradient(90deg, #a259ff, #2b3abf)',
+  borderRadius: '2px'
+};
+
 const sliderContainerWrapper = { 
   position: 'relative', 
   width: '100%',
   display: 'block' 
 };
 
-// Стрілки тепер літають поверх списку завдяки position: 'absolute'
 const sideScrollButtonStyle = {
   position: 'absolute', 
-  top: '180px', // Вирівняно приблизно по центру постерів
-  width: '46px', 
-  height: '46px', 
+  top: '180px', 
+  width: '48px', 
+  height: '48px', 
   borderRadius: '50%',
-  backgroundColor: '#fff', 
-  color: '#8e24aa', 
-  border: '1px solid #e0e0e0', 
-  fontSize: '28px',
+  backgroundColor: 'rgba(30, 30, 45, 0.8)', 
+  backdropFilter: 'blur(10px)',
+  color: '#a259ff', 
+  border: '1px solid rgba(162, 89, 255, 0.2)', 
+  fontSize: '26px',
   display: 'flex', 
   justifyContent: 'center', 
   alignItems: 'center', 
   cursor: 'pointer', 
   zIndex: 15,
-  boxShadow: '0 4px 12px rgba(0,0,0,0.15)', 
+  boxShadow: '0 8px 24px rgba(0,0,0,0.3)', 
   transition: 'all 0.2s ease', 
   paddingBottom: '4px'
 };
 
-// Рядок фільмів, що йде строго в лінію
 const horizontalScrollStyle = {
   display: 'flex', 
   gap: '30px', 
   overflowX: 'auto', 
-  paddingBottom: '20px',
+  paddingBottom: '25px',
   scrollBehavior: 'smooth', 
   scrollbarWidth: 'none', 
   msOverflowStyle: 'none',
   width: '100%'
 };
 
-const movieCardStyle = { width: '280px', flexShrink: 0, display: 'flex', flexDirection: 'column' };
-const imageStyle = { width: '280px', height: '420px', objectFit: 'cover', borderRadius: '24px', boxShadow: '0 8px 25px rgba(0,0,0,0.06)' };
-const posterPlaceholderStyle = { width: '280px', height: '420px', backgroundColor: '#f3e5f5', borderRadius: '24px', display: 'flex', justifyContent: 'center', alignItems: 'center', fontSize: '40px' };
+const movieCardStyle = { 
+  width: '280px', 
+  flexShrink: 0, 
+  display: 'flex', 
+  flexDirection: 'column',
+  backgroundColor: '#14141f',
+  borderRadius: '24px',
+  overflow: 'hidden',
+  border: '1px solid rgba(255, 255, 255, 0.04)',
+  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+};
 
-const movieInfoStyle = { display: 'flex', flexDirection: 'column', gap: '4px', flex: 1 };
-const movieTitleStyle = { fontSize: '18px', fontWeight: '700', color: '#333', margin: 0 };
-const ratingBadgeStyle = { backgroundColor: '#f3e5f5', color: '#8e24aa', padding: '2px 8px', borderRadius: '6px', fontSize: '12px', fontWeight: '700' };
-const movieGenreStyle = { color: '#777', fontSize: '13px', margin: 0 };
+const imageWrapperStyle = {
+  position: 'relative',
+  width: '280px',
+  height: '400px',
+  overflow: 'hidden'
+};
 
-const sessionsContainerStyle = { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '10px' };
+const imageStyle = { 
+  width: '100%', 
+  height: '100%', 
+  objectFit: 'cover',
+  transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
+};
 
-// Кнопка-таймслот для сеансу
+const posterPlaceholderStyle = { 
+  width: '100%', 
+  height: '100%', 
+  backgroundColor: '#1f1f2e', 
+  display: 'flex', 
+  justifyContent: 'center', 
+  alignItems: 'center', 
+  fontSize: '40px' 
+};
+
+const ratingBadgeStyle = { 
+  position: 'absolute',
+  top: '15px',
+  right: '15px',
+  backgroundColor: 'rgba(13, 13, 21, 0.75)', 
+  backdropFilter: 'blur(6px)',
+  color: '#a259ff', 
+  padding: '4px 10px', 
+  borderRadius: '8px', 
+  fontSize: '12px', 
+  fontWeight: '800',
+  border: '1px solid rgba(162, 89, 255, 0.3)'
+};
+
+const movieInfoStyle = { 
+  padding: '20px',
+  display: 'flex', 
+  flexDirection: 'column', 
+  gap: '6px'
+};
+
+const movieTitleStyle = { 
+  fontSize: '18px', 
+  fontWeight: '700', 
+  color: '#fff', 
+  margin: 0,
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis'
+};
+
+const movieGenreStyle = { color: '#6c6c80', fontSize: '13px', margin: 0, fontWeight: '500' };
+
+const sessionsContainerStyle = { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px' };
+
 const timeBadgeStyle = { 
   padding: '8px 14px', 
-  backgroundColor: '#f3e5f5', 
-  color: '#4a148c', 
+  backgroundColor: 'rgba(255, 255, 255, 0.06)', 
+  color: '#fff', 
+  borderRadius: '10px', 
+  fontSize: '13px', 
+  fontWeight: '700',
+  border: '1px solid rgba(255, 255, 255, 0.08)',
+  cursor: 'pointer',
+  transition: 'all 0.2s ease'
+};
+
+const backupTimeBadgeStyle = {
+  padding: '8px 14px', 
+  backgroundColor: 'rgba(255, 255, 255, 0.02)', 
+  color: '#888', 
   borderRadius: '10px', 
   fontSize: '13px', 
   fontWeight: '600',
-  border: '1px solid rgba(142, 36, 170, 0.15)',
-  cursor: 'pointer'
+  border: '1px solid rgba(255, 255, 255, 0.03)',
+  cursor: 'pointer',
+  transition: 'all 0.2s ease'
 };
 
-const noSessionsTextStyle = { fontSize: '13px', color: '#999', fontStyle: 'italic', marginTop: '5px' };
+const noSessionsTextStyle = { fontSize: '13px', color: '#525266', fontStyle: 'italic', marginTop: '5px' };
 
 export default HomePage;
