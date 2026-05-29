@@ -1,158 +1,432 @@
 import { useState, useEffect, useRef } from 'react';
-import '../index.css';
+import { useNavigate } from 'react-router-dom';
+import axios from 'axios';
 
-const HomePage = ({ movies = [], sessions = [], promoAds = [] }) => {
-  const [currentAd, setCurrentAd] = useState(0);
-  const scrollRef = useRef(null);
+const HomePage = () => {
+  const [movies, setMovies] = useState([]);
+  const [sessions, setSessions] = useState([]);
+  const [loading, setLoading] = useState(true);
+  const [currentSlide, setCurrentSlide] = useState(0);
+  const [hoveredMovieId, setHoveredMovieId] = useState(null);
+  const scrollContainerRef = useRef(null);
+  const navigate = useNavigate();
 
-  // Автоматичне перемикання рекламного банера кожні 5 секунд
-  useEffect(() => {
-    if (promoAds.length > 0) {
-      const timer = setInterval(() => {
-        setCurrentAd((prev) => (prev + 1) % promoAds.length);
-      }, 5000);
-      return () => clearInterval(timer);
+  const today = new Date();
+  const todayStr = `${today.getFullYear()}-${String(today.getMonth() + 1).padStart(2, '0')}-${String(today.getDate()).padStart(2, '0')}`;
+
+  const bannerSlides = [
+    { 
+      title: "День Попкорну", 
+      subtitle: "Купуй великий попкорн — отримуй напій у подарунок!",
+      bg: "linear-gradient(to top, rgba(13, 13, 21, 1), rgba(13, 13, 21, 0.4)), url('https://images.unsplash.com/photo-1578496479531-32e296d5c6e1?w=1200')" 
+    },
+    { 
+      title: "Cinema Future", 
+      subtitle: "Відчуй майбутнє кіно в ТРЦ «Подоляни»",
+      bg: "linear-gradient(135deg, #2b3abf 0%, #a259ff 100%)"
     }
-  }, [promoAds.length]);
+  ];
 
-  // Функція для плавного скролу секції з фільмами
-  const scroll = (direction) => {
-    const { current } = scrollRef;
-    if (current) {
-      const scrollAmount = 700; 
-      direction === 'left' 
-        ? (current.scrollLeft -= scrollAmount) 
-        : (current.scrollLeft += scrollAmount);
+  useEffect(() => {
+    const fetchData = async () => {
+      try {
+        const moviesResponse = await axios.get('http://localhost:5000/api/movies');
+        const sessionsResponse = await axios.get('http://localhost:5000/api/sessions');
+        
+        setMovies(Array.isArray(moviesResponse.data) ? moviesResponse.data : []);
+        setSessions(Array.isArray(sessionsResponse.data) ? sessionsResponse.data : []);
+      } catch (error) {
+        console.error("Помилка завантаження даних для головної сторінки:", error);
+      } finally {
+        setLoading(false);
+      }
+    };
+    fetchData();
+  }, []);
+
+  useEffect(() => {
+    const timer = setInterval(() => {
+      setCurrentSlide((prev) => (prev + 1) % bannerSlides.length);
+    }, 6000);
+    return () => clearInterval(timer);
+  }, [bannerSlides.length]);
+
+  const handleScroll = (direction) => {
+    if (scrollContainerRef.current) {
+      const scrollAmount = 310;
+      scrollContainerRef.current.scrollBy({
+        left: direction === 'left' ? -scrollAmount : scrollAmount,
+        behavior: 'smooth'
+      });
     }
   };
 
+  const getSessionDateStr = (showTime) => {
+    if (!showTime) return '';
+    if (typeof showTime === 'string' && showTime.includes('T')) return showTime.split('T')[0];
+    const d = new Date(showTime);
+    return isNaN(d.getTime()) ? '' : d.toISOString().split('T')[0];
+  };
+
+  const formatSessionTime = (showTime) => {
+    if (!showTime) return '--:--';
+    const d = new Date(showTime);
+    if (isNaN(d.getTime())) return '--:--';
+    
+    const hasZ = typeof showTime === 'string' && (showTime.endsWith('Z') || showTime.includes('+'));
+    return d.toLocaleTimeString('uk-UA', {
+      hour: '2-digit',
+      minute: '2-digit',
+      timeZone: hasZ ? 'Europe/Kyiv' : 'UTC'
+    });
+  };
+
+  if (loading) {
+    return <div style={{ textAlign: 'center', padding: '100px', fontSize: '18px', color: '#a259ff', backgroundColor: '#0d0d15', minHeight: '100vh' }}>Завантаження афіші...</div>;
+  }
+
   return (
-    <div className="app-wrapper">
-      {/* --- СЕКЦІЯ РЕКЛАМНОГО БАНЕРА --- */}
-      <section className="promo-section">
-        <div className="promo-viewport">
-          {promoAds.map((ad, index) => (
+    <div style={containerStyle}>
+      <div style={{ ...bannerStyle, backgroundImage: bannerSlides[currentSlide].bg }}>
+        <div style={bannerContentWrapperStyle}>
+          <h1 style={bannerTitleStyle}>{bannerSlides[currentSlide].title}</h1>
+          <p style={bannerSubtitleStyle}>{bannerSlides[currentSlide].subtitle}</p>
+          <button style={bannerButtonStyle}>Дізнатись більше</button>
+        </div>
+
+        <div style={dotsContainerStyle}>
+          {bannerSlides.map((_, index) => (
             <div 
-              key={ad.id} 
-              className={`promo-slide ${index === currentAd ? 'active' : ''}`}
-              style={{ 
-                backgroundImage: `linear-gradient(rgba(0,0,0,0.5), rgba(0,0,0,0.5)), url(${ad.img})` 
+              key={index} 
+              style={{
+                ...dotStyle,
+                backgroundColor: currentSlide === index ? '#a259ff' : 'rgba(255,255,255,0.2)',
+                width: currentSlide === index ? '28px' : '8px'
               }}
-            >
-              <h1>{ad.title}</h1>
-              <p>{ad.desc}</p>
-              <button className="promo-btn">{ad.btnText}</button>
-            </div>
+            />
           ))}
-          <div className="promo-dots">
-            {promoAds.map((_, index) => (
+        </div>
+      </div>
+
+      <div style={sectionHeaderStyle}>
+        <h2 style={sectionTitleStyle}>Зараз у кіно</h2>
+        <div style={lineAccentStyle}></div>
+      </div>
+
+      <div style={sliderContainerWrapper}>
+        <button 
+          style={{ ...sideScrollButtonStyle, left: '-20px' }} 
+          onClick={() => handleScroll('left')}
+          onMouseOver={(e) => { e.target.style.backgroundColor = '#a259ff'; e.target.style.color = '#fff'; }}
+          onMouseOut={(e) => { e.target.style.backgroundColor = 'rgba(30, 30, 45, 0.8)'; e.target.style.color = '#a259ff'; }}
+        >
+          ‹
+        </button>
+        
+        <button 
+          style={{ ...sideScrollButtonStyle, right: '-20px' }} 
+          onClick={() => handleScroll('right')}
+          onMouseOver={(e) => { e.target.style.backgroundColor = '#a259ff'; e.target.style.color = '#fff'; }}
+          onMouseOut={(e) => { e.target.style.backgroundColor = 'rgba(30, 30, 45, 0.8)'; e.target.style.color = '#a259ff'; }}
+        >
+          ›
+        </button>
+
+        <div ref={scrollContainerRef} style={horizontalScrollStyle}>
+          {movies.map(movie => {
+            const todayMovieSessions = sessions.filter(session => {
+              return session.movie_id === movie.id && getSessionDateStr(session.show_time) === todayStr;
+            });
+
+            const backupSessions = sessions.filter(session => session.movie_id === movie.id).slice(0, 3);
+            const isHovered = hoveredMovieId === movie.id;
+
+            return (
               <div 
-                key={index} 
-                className={`dot ${index === currentAd ? 'active' : ''}`} 
-                onClick={() => setCurrentAd(index)} 
-              />
-            ))}
-          </div>
-        </div>
-      </section>
-
-      {/* --- ОСНОВНА СЕКЦІЯ З ФІЛЬМАМИ --- */}
-      <main style={{ padding: '40px 10%' }}>
-        <div style={{ display: 'flex', justifyContent: 'space-between', alignItems: 'center', marginBottom: '25px' }}>
-          <h2 style={{ fontSize: '28px', fontWeight: '800', margin: 0 }}>Сьогодні в кіно:</h2>
-          <span style={{ color: '#8e24aa', cursor: 'pointer', fontWeight: '600', fontSize: '15px' }}>Дивитися всі</span>
-        </div>
-
-        <div className="movie-container" style={{ position: 'relative' }}>
-          {/* Кнопки навігації (винесені за межі карток) */}
-          <button 
-            className="nav-btn prev-btn" 
-            onClick={() => scroll('left')} 
-            style={{ left: '-65px' }}
-          >
-            ❮
-          </button>
-          <button 
-            className="nav-btn next-btn" 
-            onClick={() => scroll('right')} 
-            style={{ right: '-65px' }}
-          >
-            ❯
-          </button>
-
-          <div className="movie-slider" ref={scrollRef}>
-            {movies.map(movie => (
-              <div key={movie.id} className="movie-card" style={{ flex: '0 0 300px' }}>
-                {/* Постер фільму */}
-                <div 
-                  className="movie-poster" 
-                  style={{ 
-                    backgroundImage: `url(${movie.image})`, 
-                    height: '420px', 
-                    backgroundSize: 'cover', 
-                    backgroundPosition: 'center',
-                    borderRadius: '24px',
-                    position: 'relative',
-                    boxShadow: '0 10px 25px rgba(0,0,0,0.1)'
-                  }}
-                >
-                  {/* Покращений рейтинг (Glassmorphism) у верхньому правому куті */}
-                  <div style={{ 
-                    position: 'absolute', 
-                    top: '15px', 
-                    right: '15px', 
-                    backgroundColor: 'rgba(255, 255, 255, 0.25)', 
-                    backdropFilter: 'blur(12px)',
-                    WebkitBackdropFilter: 'blur(12px)',
-                    color: '#fff', 
-                    padding: '6px 12px', 
-                    borderRadius: '12px', 
-                    fontSize: '14px', 
-                    fontWeight: '700',
-                    border: '1px solid rgba(255, 255, 255, 0.3)',
-                    boxShadow: '0 4px 15px rgba(0,0,0,0.1)'
-                  }}>
-                    ⭐ {movie.rating || '0.0'}
+                key={movie.id} 
+                style={{
+                  ...movieCardStyle,
+                  transform: isHovered ? 'translateY(-10px)' : 'none',
+                  borderColor: isHovered ? 'rgba(162, 89, 255, 0.3)' : 'rgba(255, 255, 255, 0.04)',
+                  boxShadow: isHovered ? '0 15px 35px rgba(142, 36, 170, 0.15)' : 'none'
+                }}
+                onMouseEnter={() => setHoveredMovieId(movie.id)}
+                onMouseLeave={() => setHoveredMovieId(null)}
+              >
+                <div style={imageWrapperStyle}>
+                  {movie.image ? (
+                    <img 
+                      src={movie.image} 
+                      alt={movie.title} 
+                      style={{
+                        ...imageStyle,
+                        transform: isHovered ? 'scale(1.06)' : 'scale(1)'
+                      }} 
+                    />
+                  ) : (
+                    <div style={posterPlaceholderStyle}>🎬</div>
+                  )}
+                  <span style={ratingBadgeStyle}>{movie.rating || '16+'}</span>
+                </div>
+                
+                <div style={movieInfoStyle}>
+                  <h3 style={movieTitleStyle}>{movie.title}</h3>
+                  <p style={movieGenreStyle}>{movie.genre}</p>
+                  
+                  <div style={sessionsContainerStyle}>
+                    {todayMovieSessions.length > 0 ? (
+                      todayMovieSessions.map(session => (
+                        <button 
+                          key={session.id} 
+                          style={timeBadgeStyle}
+                          onClick={() => navigate(`/session/${session.id}`)}
+                          onMouseOver={(e) => { e.target.style.background = 'linear-gradient(135deg, #2b3abf 0%, #a259ff 100%)'; e.target.style.boxShadow = '0 4px 12px rgba(162, 89, 255, 0.3)'; }}
+                          onMouseOut={(e) => { e.target.style.background = 'rgba(255, 255, 255, 0.06)'; e.target.style.boxShadow = 'none'; }}
+                        >
+                          {formatSessionTime(session.show_time)}
+                        </button>
+                      ))
+                    ) : backupSessions.length > 0 ? (
+                      backupSessions.map(session => (
+                        <button 
+                          key={session.id} 
+                          style={backupTimeBadgeStyle}
+                          onClick={() => navigate(`/session/${session.id}`)}
+                          onMouseOver={(e) => { e.target.style.background = 'linear-gradient(135deg, #2b3abf 0%, #a259ff 100%)'; e.target.style.color = '#fff'; }}
+                          onMouseOut={(e) => { e.target.style.background = 'rgba(255, 255, 255, 0.02)'; e.target.style.color = '#888'; }}
+                        >
+                          {formatSessionTime(session.show_time)}
+                        </button>
+                      ))
+                    ) : (
+                      <span style={noSessionsTextStyle}>Сеансів немає</span>
+                    )}
                   </div>
                 </div>
-
-                <h3 style={{ fontSize: '19px', margin: '15px 0 5px 0', fontWeight: '700' }}>{movie.title}</h3>
-                <p style={{ color: '#888', fontSize: '14px', marginBottom: '15px' }}>{movie.genre || 'Бойовик'}</p>
-                
-                {/* Список сеансів (відсортований за часом) */}
-                <div className="sessions-list" style={{ display: 'flex', gap: '8px', flexWrap: 'wrap' }}>
-                  {sessions
-                    .filter(s => s.movie_id === movie.id)
-                    .sort((a, b) => a.show_time.localeCompare(b.show_time)) // Сортування часу за порядком
-                    .map(s => (
-                      <button 
-                        key={s.id} 
-                        className="session-time-btn"
-                        style={{
-                          padding: '7px 12px',
-                          borderRadius: '10px',
-                          border: '1px solid #eee',
-                          backgroundColor: '#f8f8f8',
-                          fontSize: '13px',
-                          fontWeight: '600',
-                          cursor: 'pointer',
-                          transition: '0.2s'
-                        }}
-                      >
-                        {s.show_time}
-                      </button>
-                    ))}
-                </div>
               </div>
-            ))}
-          </div>
+            );
+          })}
         </div>
-      </main>
-
-      {/* Нижній відступ для естетики */}
-      <div style={{ height: '60px' }}></div>
+      </div>
     </div>
   );
 };
+
+const containerStyle = { 
+  padding: '0 8% 60px 8%', 
+  backgroundColor: '#0d0d15', 
+  minHeight: '100vh',
+  transition: 'all 0.3s ease'
+};
+
+const bannerStyle = {
+  backgroundSize: 'cover', 
+  backgroundPosition: 'center', 
+  borderRadius: '32px', 
+  padding: '60px 50px',
+  color: '#fff', 
+  marginBottom: '50px', 
+  position: 'relative',
+  minHeight: '320px', 
+  display: 'flex', 
+  flexDirection: 'column', 
+  justifyContent: 'center', 
+  alignItems: 'flex-start',
+  boxShadow: '0 20px 40px rgba(0,0,0,0.4)',
+  transition: 'background-image 0.8s cubic-bezier(0.4, 0, 0.2, 1)'
+};
+
+const bannerContentWrapperStyle = {
+  maxWidth: '550px',
+  textAlign: 'left',
+  zIndex: 2
+};
+
+const bannerTitleStyle = { 
+  fontSize: '46px', 
+  fontWeight: '900', 
+  margin: '0 0 12px 0', 
+  letterSpacing: '-1px',
+  lineHeight: '1.1'
+};
+
+const bannerSubtitleStyle = { 
+  fontSize: '16px', 
+  margin: '0 0 28px 0', 
+  opacity: 0.85, 
+  lineHeight: '1.5' 
+};
+
+const bannerButtonStyle = { 
+  padding: '14px 36px', 
+  background: 'linear-gradient(135deg, #2b3abf 0%, #a259ff 100%)', 
+  color: '#fff', 
+  border: 'none', 
+  borderRadius: '14px', 
+  fontSize: '14px', 
+  fontWeight: '700', 
+  cursor: 'pointer', 
+  boxShadow: '0 6px 20px rgba(162, 89, 255, 0.4)'
+};
+
+const dotsContainerStyle = { position: 'absolute', bottom: '25px', right: '50px', display: 'flex', gap: '8px' };
+const dotStyle = { height: '8px', borderRadius: '4px', transition: 'all 0.4s ease' };
+
+const sectionHeaderStyle = {
+  display: 'flex',
+  flexDirection: 'column',
+  gap: '6px',
+  marginBottom: '30px'
+};
+
+const sectionTitleStyle = { 
+  fontSize: '28px', 
+  fontWeight: '800', 
+  color: '#fff', 
+  margin: 0,
+  letterSpacing: '-0.5px'
+};
+
+const lineAccentStyle = {
+  width: '60px',
+  height: '4px',
+  background: 'linear-gradient(90deg, #a259ff, #2b3abf)',
+  borderRadius: '2px'
+};
+
+const sliderContainerWrapper = { 
+  position: 'relative', 
+  width: '100%',
+  display: 'block' 
+};
+
+const sideScrollButtonStyle = {
+  position: 'absolute', 
+  top: '180px', 
+  width: '48px', 
+  height: '48px', 
+  borderRadius: '50%',
+  backgroundColor: 'rgba(30, 30, 45, 0.8)', 
+  backdropFilter: 'blur(10px)',
+  color: '#a259ff', 
+  border: '1px solid rgba(162, 89, 255, 0.2)', 
+  fontSize: '26px',
+  display: 'flex', 
+  justifyContent: 'center', 
+  alignItems: 'center', 
+  cursor: 'pointer', 
+  zIndex: 15,
+  boxShadow: '0 8px 24px rgba(0,0,0,0.3)', 
+  transition: 'all 0.2s ease', 
+  paddingBottom: '4px'
+};
+
+const horizontalScrollStyle = {
+  display: 'flex', 
+  gap: '30px', 
+  overflowX: 'auto', 
+  paddingBottom: '25px',
+  scrollBehavior: 'smooth', 
+  scrollbarWidth: 'none', 
+  msOverflowStyle: 'none',
+  width: '100%'
+};
+
+const movieCardStyle = { 
+  width: '280px', 
+  flexShrink: 0, 
+  display: 'flex', 
+  flexDirection: 'column',
+  backgroundColor: '#14141f',
+  borderRadius: '24px',
+  overflow: 'hidden',
+  border: '1px solid rgba(255, 255, 255, 0.04)',
+  transition: 'all 0.3s cubic-bezier(0.4, 0, 0.2, 1)'
+};
+
+const imageWrapperStyle = {
+  position: 'relative',
+  width: '280px',
+  height: '400px',
+  overflow: 'hidden'
+};
+
+const imageStyle = { 
+  width: '100%', 
+  height: '100%', 
+  objectFit: 'cover',
+  transition: 'transform 0.5s cubic-bezier(0.4, 0, 0.2, 1)'
+};
+
+const posterPlaceholderStyle = { 
+  width: '100%', 
+  height: '100%', 
+  backgroundColor: '#1f1f2e', 
+  display: 'flex', 
+  justifyContent: 'center', 
+  alignItems: 'center', 
+  fontSize: '40px' 
+};
+
+const ratingBadgeStyle = { 
+  position: 'absolute',
+  top: '15px',
+  right: '15px',
+  backgroundColor: 'rgba(13, 13, 21, 0.75)', 
+  backdropFilter: 'blur(6px)',
+  color: '#a259ff', 
+  padding: '4px 10px', 
+  borderRadius: '8px', 
+  fontSize: '12px', 
+  fontWeight: '800',
+  border: '1px solid rgba(162, 89, 255, 0.3)'
+};
+
+const movieInfoStyle = { 
+  padding: '20px',
+  display: 'flex', 
+  flexDirection: 'column', 
+  gap: '6px'
+};
+
+const movieTitleStyle = { 
+  fontSize: '18px', 
+  fontWeight: '700', 
+  color: '#fff', 
+  margin: 0,
+  whiteSpace: 'nowrap',
+  overflow: 'hidden',
+  textOverflow: 'ellipsis'
+};
+
+const movieGenreStyle = { color: '#6c6c80', fontSize: '13px', margin: 0, fontWeight: '500' };
+
+const sessionsContainerStyle = { display: 'flex', gap: '8px', flexWrap: 'wrap', marginTop: '12px' };
+
+const timeBadgeStyle = { 
+  padding: '8px 14px', 
+  backgroundColor: 'rgba(255, 255, 255, 0.06)', 
+  color: '#fff', 
+  borderRadius: '10px', 
+  fontSize: '13px', 
+  fontWeight: '700',
+  border: '1px solid rgba(255, 255, 255, 0.08)',
+  cursor: 'pointer',
+  transition: 'all 0.2s ease'
+};
+
+const backupTimeBadgeStyle = {
+  padding: '8px 14px', 
+  backgroundColor: 'rgba(255, 255, 255, 0.02)', 
+  color: '#888', 
+  borderRadius: '10px', 
+  fontSize: '13px', 
+  fontWeight: '600',
+  border: '1px solid rgba(255, 255, 255, 0.03)',
+  cursor: 'pointer',
+  transition: 'all 0.2s ease'
+};
+
+const noSessionsTextStyle = { fontSize: '13px', color: '#525266', fontStyle: 'italic', marginTop: '5px' };
 
 export default HomePage;

@@ -1,35 +1,33 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { useEffect, useState, createContext, useContext } from 'react';
+import { useEffect, useState, createContext } from 'react';
 import axios from 'axios';
 import Header from './components/Header';
 import HomePage from './pages/HomePage';
 import SchedulePage from './pages/SchedulePage';
 import AuthPage from './pages/AuthPage';
+import ProfilePage from './pages/ProfilePage';
+import HallPage from './pages/HallPage';
 
-// 1. Створюємо контекст авторизації прямо тут (або в окремому файлі)
 export const AuthContext = createContext();
 
 function App() {
   const [movies, setMovies] = useState([]);
   const [sessions, setSessions] = useState([]);
-  const [user, setUser] = useState(null); // Стан користувача (null = не увійшов)
+  const [user, setUser] = useState(null);
 
-  // Завантаження фільмів та сеансів
   useEffect(() => {
     axios.get('http://localhost:5000/api/movies')
       .then(res => setMovies(res.data))
-      .catch(err => console.error("Помилка завантаження фільмів:", err));
+      .catch(err => console.error(err));
 
     axios.get('http://localhost:5000/api/sessions')
       .then(res => setSessions(res.data))
-      .catch(err => console.error("Помилка завантаження сеансів:", err));
+      .catch(err => console.error(err));
     
-    // Перевірка, чи є збережений користувач у localStorage
     const savedUser = localStorage.getItem('cinema_user');
     if (savedUser) setUser(JSON.parse(savedUser));
   }, []);
 
-  // Функції для входу та виходу
   const login = (userData) => {
     setUser(userData);
     localStorage.setItem('cinema_user', JSON.stringify(userData));
@@ -67,7 +65,7 @@ function App() {
   return (
     <AuthContext.Provider value={{ user, login, logout }}>
       <Router>
-        <div className="app-container" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <div className="app-container" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#0d0d15' }}>
           <Header />
           <Routes>
             <Route 
@@ -88,8 +86,16 @@ function App() {
               path="/auth" 
               element={<AuthPage />} 
             />
+            <Route 
+              path="/profile" 
+              element={<ProfilePage />} 
+            />
+            <Route 
+              path="/session/:sessionId" 
+              element={<HallPage />} 
+            />
           </Routes>
-          <footer style={{ height: '60px', marginTop: 'auto' }}></footer>
+          <footer style={{ height: '60px', marginTop: 'auto', backgroundColor: '#0d0d15' }}></footer>
         </div>
       </Router>
     </AuthContext.Provider>
