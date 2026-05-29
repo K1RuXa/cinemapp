@@ -1,12 +1,13 @@
 import { BrowserRouter as Router, Routes, Route } from 'react-router-dom';
-import { useEffect, useState, createContext, useContext } from 'react';
+import { useEffect, useState, createContext } from 'react';
 import axios from 'axios';
 import Header from './components/Header';
 import HomePage from './pages/HomePage';
 import SchedulePage from './pages/SchedulePage';
 import AuthPage from './pages/AuthPage';
+import ProfilePage from './pages/ProfilePage'; // Додано імпорт сторінки профілю
 
-// 1. Створюємо контекст авторизації прямо тут (або в окремому файлі)
+// 1. Створюємо контекст авторизації прямо тут
 export const AuthContext = createContext();
 
 function App() {
@@ -67,7 +68,7 @@ function App() {
   return (
     <AuthContext.Provider value={{ user, login, logout }}>
       <Router>
-        <div className="app-container" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column' }}>
+        <div className="app-container" style={{ minHeight: '100vh', display: 'flex', flexDirection: 'column', backgroundColor: '#fff' }}>
           <Header />
           <Routes>
             <Route 
@@ -87,6 +88,11 @@ function App() {
             <Route 
               path="/auth" 
               element={<AuthPage />} 
+            />
+            {/* 🎉 НОВИЙ РОУТ ДЛЯ ОСОБИСТОГО КАБІНЕТУ */}
+            <Route 
+              path="/profile" 
+              element={<ProfilePage />} 
             />
           </Routes>
           <footer style={{ height: '60px', marginTop: 'auto' }}></footer>

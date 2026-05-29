@@ -7,7 +7,8 @@ const Header = () => {
   // Отримуємо дані користувача та функцію виходу з глобального контексту
   const { user, logout } = useContext(AuthContext);
 
-  const handleLogout = () => {
+  const handleLogout = (e) => {
+    e.stopPropagation(); // Зупиняємо перехід у профіль при кліку на "Вийти"
     if (window.confirm("Ви впевнені, що хочете вийти?")) {
       logout();
       navigate('/');
@@ -47,7 +48,21 @@ const Header = () => {
 
         {/* Секція користувача */}
         {user ? (
-          <div style={{ display: 'flex', alignItems: 'center', gap: '15px' }}>
+          /* 🎉 ТЕПЕР УСЯ ПЛАШКА КОРИСТУВАЧА КЛІКАБЕЛЬНА ДЛЯ ПЕРЕХОДУ В ПРОФІЛЬ */
+          <div 
+            onClick={() => navigate('/profile')}
+            style={{ 
+              display: 'flex', 
+              alignItems: 'center', 
+              gap: '15px', 
+              cursor: 'pointer',
+              padding: '4px 8px',
+              borderRadius: '24px',
+              transition: '0.2s'
+            }}
+            onMouseOver={(e) => e.currentTarget.style.backgroundColor = '#fcf8ff'}
+            onMouseOut={(e) => e.currentTarget.style.backgroundColor = 'transparent'}
+          >
             <div style={{ display: 'flex', flexDirection: 'column', alignItems: 'flex-end' }}>
               <span style={{ fontWeight: '600', fontSize: '14px', color: '#333' }}>
                 {user.username || user.name}
@@ -64,7 +79,8 @@ const Header = () => {
               width: '35px', height: '35px', borderRadius: '50%', 
               backgroundColor: '#8e24aa', color: '#fff', 
               display: 'flex', justifyContent: 'center', alignItems: 'center',
-              fontWeight: 'bold', fontSize: '14px'
+              fontWeight: 'bold', fontSize: '14px',
+              boxShadow: '0 2px 8px rgba(142, 36, 170, 0.2)'
             }}>
               {(user.username || user.name || 'U')[0].toUpperCase()}
             </div>

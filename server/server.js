@@ -13,15 +13,14 @@ const JWT_SECRET = 'super_secret_key_cinema_123'; // Секретне слово
 app.use(cors()); 
 app.use(express.json()); 
 
-// Маршрути для фільмів (перевірив, щоб працювало через твій окремий файл)
+// Маршрути для фільмів
 app.use("/api/movies", movieRoutes);
 
 // ==========================================
-// МАРШРУТ ДЛЯ СЕАНСІВ (ВИПРАВЛЕНИЙ)
+// МАРШРУТ ДЛЯ СЕАНСІВ
 // ==========================================
 app.get('/api/sessions', async (req, res) => {
   try {
-    // Додано QueryTypes.SELECT, щоб повернути чистий масив сеансів без метаданих
     const data = await sequelize.query("SELECT * FROM sessions", {
       type: QueryTypes.SELECT
     });
@@ -29,6 +28,40 @@ app.get('/api/sessions', async (req, res) => {
   } catch (err) {
     console.error("Помилка при отриманні сеансів:", err);
     return res.status(500).json({ message: "Помилка сервера", error: err });
+  }
+});
+
+// ==========================================
+// НОВИЙ МАРШРУТ: ОТРИМАННЯ КВИТКІВ КОРИСТУВАЧА
+// ==========================================
+app.get('/api/user/tickets/:userId', async (req, res) => {
+  const { userId } = req.params;
+
+  try {
+    // Зв'язуємо таблиці, щоб отримати повну інформацію про квиток та фільм
+    const tickets = await sequelize.query(`
+      SELECT 
+        t.id AS ticket_id,
+        t.seat_details,
+        s.show_time,
+        m.title,
+        m.image,
+        m.genre
+      FROM tickets t
+      JOIN sessions s ON t.session_id = s.id
+      JOIN movies m ON s.movie_id = m.id
+      JOIN orders o ON t.order_id = o.id
+      WHERE o.user_id = ?
+      ORDER BY s.show_time DESC
+    `, {
+      replacements: [userId],
+      type: QueryTypes.SELECT
+    });
+
+    return res.json(tickets);
+  } catch (err) {
+    console.error("Помилка при отриманні квитків користувача:", err);
+    return res.status(500).json({ error: "Помилка сервера при завантаженні квитків" });
   }
 });
 
@@ -47,13 +80,11 @@ app.post('/api/auth/register', async (req, res) => {
   try {
     const password_hash = await bcrypt.hash(password, 10);
 
-    // Вставка працює без змін
     await sequelize.query(
       "INSERT INTO users (username, email, password_hash) VALUES (?, ?, ?)",
       { replacements: [username, email, password_hash] }
     );
 
-    // ВИПРАВЛЕНО: Додано QueryTypes.SELECT для безпечного отримання створеного ID
     const insertedUser = await sequelize.query(
       "SELECT id FROM users WHERE email = ?",
       { 
@@ -96,7 +127,6 @@ app.post('/api/auth/login', async (req, res) => {
   }
 
   try {
-    // ВИПРАВЛЕНО: Додано QueryTypes.SELECT, тепер у змінній rows буде чистий масив користувачів
     const rows = await sequelize.query(
       "SELECT * FROM users WHERE email = ?",
       { 
